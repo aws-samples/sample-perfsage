@@ -1,0 +1,50 @@
+# PerfSage TestGen Agent Container
+# Runs the Strands-based agent for generating k6 load test scripts
+
+FROM --platform=linux/amd64 python:3.12.4-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install AWS CLI v2 (for S3 download/upload)
+RUN curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+    && apt-get update && apt-get install -y --no-install-recommends unzip \
+    && unzip -q awscliv2.zip \
+    && ./aws/install \
+    && rm -rf awscliv2.zip aws \
+    && apt-get remove -y unzip && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python dependencies
+COPY testgen_agent/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy agent source code
+COPY testgen_agent/agent.py testgen_agent/fargate_runner.py ./
+COPY testgen_agent/tools/ ./tools/
+COPY testgen_agent/prompts/ ./prompts/
+
+# Copy entrypoint
+COPY docker/entrypoint_testgen.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Create non-root user
+RUN useradd -m -s /bin/bash perfsage \
+    && chown -R perfsage:perfsage /app
+USER perfsage
+
+# Create writable directories for non-root user
+RUN mkdir -p /tmp/testgen
+
+ENV PYTHONUNBUFFERED=1
+ENV LOG_LEVEL=INFO
+
+# Health check (satisfies CKV_DOCKER_2; batch/agent container so kept trivial)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD echo "healthy" || exit 1
+
+ENTRYPOINT ["/entrypoint.sh"]

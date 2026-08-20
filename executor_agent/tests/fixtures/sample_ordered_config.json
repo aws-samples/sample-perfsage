@@ -1,0 +1,90 @@
+{
+    "test_id": "run-ordered-flow-001",
+    "script_path": "./tests/fixtures/sample_ordered_flow.js",
+    "virtual_users": 100,
+    "duration": "5m",
+    "ramp_up": "1m",
+    "thresholds": {
+        "p99_latency_ms": 1000,
+        "p95_latency_ms": 500,
+        "error_rate_pct": 5.0,
+        "min_rps": 50.0
+    },
+    "execution_mode": "local",
+    "tags": {
+        "environment": "staging",
+        "team": "platform",
+        "service": "ecommerce-api",
+        "test_type": "ordered_flow"
+    },
+    "environment_vars": {},
+    "auto_stop_on_anomaly": true,
+    "fargate_cpu": 1024,
+    "fargate_memory": 2048,
+
+    "total_records": 10000,
+
+    "endpoint_relationships": [
+        {
+            "source": "POST /users",
+            "target": "POST /auth/login",
+            "relationship": "depends_on",
+            "data_mapping": {
+                "$.email": "$.email",
+                "$.password": "$.password"
+            },
+            "description": "Login requires a user to exist first"
+        },
+        {
+            "source": "POST /auth/login",
+            "target": "GET /products",
+            "relationship": "auth_required",
+            "data_mapping": { "$.token": "Authorization" },
+            "description": "Products endpoint requires authentication"
+        },
+        {
+            "source": "POST /auth/login",
+            "target": "POST /orders",
+            "relationship": "auth_required",
+            "data_mapping": { "$.token": "Authorization" },
+            "description": "Order creation requires authentication"
+        },
+        {
+            "source": "POST /users",
+            "target": "POST /orders",
+            "relationship": "feeds_into",
+            "data_mapping": { "$.id": "$.user_id" },
+            "description": "Order requires the user_id from user creation"
+        },
+        {
+            "source": "GET /products",
+            "target": "POST /orders",
+            "relationship": "feeds_into",
+            "data_mapping": { "$.products[0].id": "$.product_id" },
+            "description": "Order requires a product_id from product listing"
+        },
+        {
+            "source": "POST /orders",
+            "target": "GET /orders/:id",
+            "relationship": "depends_on",
+            "data_mapping": { "$.order_id": ":id" },
+            "description": "Order verification depends on order creation"
+        }
+    ],
+
+    "scenario_params": {
+        "target_url": "https://staging-api.example.com",
+        "auth_type": "bearer_token",
+        "auth_token": null,
+        "content_type": "application/json",
+        "think_time_ms": 1000,
+        "ramp_pattern": "linear",
+        "geographic_distribution": "us-east-1",
+        "custom_headers": {
+            "X-Client-Version": "2.1.0",
+            "X-Request-Source": "perfsage-load-test"
+        },
+        "payload_size": "small",
+        "scenario_description": "Test the full e-commerce checkout flow with 100 concurrent users, ramping up over 1 minute, sustaining for 5 minutes. Ensure order creation latency stays under 500ms at p95."
+    }
+}

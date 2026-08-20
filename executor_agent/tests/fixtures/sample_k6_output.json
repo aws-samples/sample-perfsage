@@ -1,0 +1,16 @@
+{"type":"Point","data":{"time":"2026-06-08T10:00:01.000Z","value":45.23,"tags":{"url":"http://mock-api:80/get","method":"GET","status":"200"}},"metric":"http_req_duration"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:01.000Z","value":1,"tags":{}},"metric":"http_reqs"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:01.000Z","value":10,"tags":{}},"metric":"vus"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:01.000Z","value":0,"tags":{}},"metric":"http_req_failed"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:02.000Z","value":52.18,"tags":{"url":"http://mock-api:80/post","method":"POST","status":"200"}},"metric":"http_req_duration"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:02.000Z","value":1,"tags":{}},"metric":"http_reqs"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:02.000Z","value":10,"tags":{}},"metric":"vus"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:02.000Z","value":0,"tags":{}},"metric":"http_req_failed"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:03.000Z","value":120.55,"tags":{"url":"http://mock-api:80/get","method":"GET","status":"200"}},"metric":"http_req_duration"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:03.000Z","value":1,"tags":{}},"metric":"http_reqs"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:03.000Z","value":20,"tags":{}},"metric":"vus"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:03.000Z","value":0,"tags":{}},"metric":"http_req_failed"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:04.000Z","value":340.22,"tags":{"url":"http://mock-api:80/post","method":"POST","status":"500"}},"metric":"http_req_duration"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:04.000Z","value":1,"tags":{}},"metric":"http_reqs"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:04.000Z","value":1,"tags":{}},"metric":"http_req_failed"}
+{"type":"Point","data":{"time":"2026-06-08T10:00:04.000Z","value":20,"tags":{}},"metric":"vus"}

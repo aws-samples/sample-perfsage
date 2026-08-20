@@ -1,0 +1,25 @@
+{
+    "test_id": "run-sample001",
+    "script_path": "./tests/fixtures/sample_k6_script.js",
+    "virtual_users": 50,
+    "duration": "2m",
+    "ramp_up": "30s",
+    "thresholds": {
+        "p99_latency_ms": 500,
+        "p95_latency_ms": 300,
+        "error_rate_pct": 1.0,
+        "min_rps": 10.0
+    },
+    "execution_mode": "local",
+    "tags": {
+        "environment": "dev",
+        "team": "platform",
+        "service": "sample-api"
+    },
+    "environment_vars": {
+        "TARGET_URL": "http://mock-api:8080"
+    },
+    "auto_stop_on_anomaly": true,
+    "fargate_cpu": 1024,
+    "fargate_memory": 2048
+}

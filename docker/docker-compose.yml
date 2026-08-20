@@ -1,0 +1,105 @@
+version: "3.8"
+
+services:
+    # Mock target API for load testing during development
+    mock-api:
+        image: kennethreitz/httpbin:latest
+        # Rebind gunicorn to a non-privileged port (default image hardcodes :80,
+        # which needs CAP_NET_BIND_SERVICE / root). This avoids mapping a
+        # privileged container port and lets us drop the capability below.
+        command: ["gunicorn", "-b", "0.0.0.0:8080", "httpbin:app", "-k", "gevent"]
+        cap_drop:
+            - ALL
+        security_opt:
+            - no-new-privileges:true
+        deploy:
+            resources:
+                limits:
+                    memory: 256M
+        ports:
+            - "127.0.0.1:8080:8080"
+        networks:
+            - perfsage-net
+        healthcheck:
+            # curl isn't installed in this image; use python3 (present since the
+            # base image is python-based) to hit the endpoint instead.
+            test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/get', timeout=3)"]
+            interval: 10s
+            timeout: 5s
+            retries: 3
+
+    # LocalStack for mocking AWS services (S3, DynamoDB, etc.)
+    localstack:
+        image: localstack/localstack:latest
+        ports:
+            - "127.0.0.1:4566:4566"
+        environment:
+            - SERVICES=s3,dynamodb,cloudwatch,ecs,ecr,logs,apigatewayv2
+            - DEFAULT_REGION=us-east-1
+            - DOCKER_HOST=unix:///var/run/docker.sock
+        volumes:
+            # Security scanner note: this mounts the sensitive host directory
+            # /var/run/docker.sock (Docker socket mount / sensitive host dir findings).
+            # Local dev only. LocalStack needs the host socket to emulate services
+            # (Lambda/ECS) that spawn sibling containers. Never used in production —
+            # real deploys run on ECS/Fargate via scripts/deploy.sh, which builds
+            # images with a plain `docker build`/`push` and has no socket access.
+            - "/var/run/docker.sock:/var/run/docker.sock"
+            - "./localstack-init:/etc/localstack/init/ready.d"
+        security_opt:
+            - no-new-privileges:true
+        deploy:
+            resources:
+                limits:
+                    memory: 2G
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 15s
+        networks:
+            - perfsage-net
+
+    # PerfSage Executor Agent
+    executor-agent:
+        build:
+            context: ..
+            dockerfile: docker/Dockerfile.agent
+        environment:
+            - AWS_REGION=us-east-1
+            - AWS_ACCESS_KEY_ID=test
+            - AWS_SECRET_ACCESS_KEY=test
+            - AWS_ENDPOINT_URL=http://localstack:4566
+            - PERFSAGE_S3_BUCKET=perfsage-results
+            - PERFSAGE_DYNAMODB_TABLE=perfsage-test-runs
+            - PERFSAGE_EXECUTION_MODE=local
+            - PERFSAGE_DOCKER_NETWORK=perfsage-net
+            - PERFSAGE_K6_IMAGE=grafana/k6:latest
+        volumes:
+            # Security scanner note: this mounts the sensitive host directory
+            # /var/run/docker.sock (Docker socket mount / sensitive host dir findings).
+            # Local dev only (PERFSAGE_EXECUTION_MODE=local). Lets the agent spawn
+            # sibling k6 containers via DooD to mimic Fargate task launches without a
+            # real ECS cluster. Production uses PERFSAGE_EXECUTION_MODE=fargate, which
+            # calls the ECS RunTask API instead — no docker.sock in that path.
+            - "/var/run/docker.sock:/var/run/docker.sock"
+            - "../executor_agent/tests/fixtures:/scripts:ro"
+        security_opt:
+            - no-new-privileges:true
+        deploy:
+            resources:
+                limits:
+                    memory: 512M
+        depends_on:
+            localstack:
+                condition: service_healthy
+            mock-api:
+                condition: service_healthy
+        networks:
+            - perfsage-net
+
+networks:
+    perfsage-net:
+        driver: bridge
+        name: perfsage-net

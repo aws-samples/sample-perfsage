@@ -1,0 +1,7 @@
+# Local development + testing dependencies.
+# Installs the Lambda runtime deps plus tools that the runtime provides in prod
+# (boto3) and dev-only tooling (pytest). Do NOT use this file to build the
+# Lambda package — use requirements.txt so boto3/pytest are not bundled.
+-r requirements.txt
+boto3>=1.34.0
+pytest>=8.0.0

@@ -1,0 +1,314 @@
+openapi: "3.0.3"
+info:
+  title: HR Management System API
+  version: "2.0.0"
+  description: Enterprise HR system managing companies, departments, and employees
+servers:
+  - url: https://hr-api.example.com/v2
+paths:
+  /companies:
+    get:
+      operationId: listCompanies
+      summary: List all companies
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of companies
+    post:
+      operationId: createCompany
+      summary: Create a new company
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - industry
+              properties:
+                name:
+                  type: string
+                industry:
+                  type: string
+                  enum: [technology, finance, healthcare, manufacturing, retail]
+                address:
+                  type: string
+                employee_count:
+                  type: integer
+      responses:
+        "201":
+          description: Company created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+  /companies/{companyId}:
+    get:
+      operationId: getCompany
+      summary: Get company by ID
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Company details
+    put:
+      operationId: updateCompany
+      summary: Update a company
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                industry:
+                  type: string
+                address:
+                  type: string
+      responses:
+        "200":
+          description: Company updated
+    delete:
+      operationId: deleteCompany
+      summary: Delete a company
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Company deleted
+  /departments:
+    get:
+      operationId: listDepartments
+      summary: List all departments
+      parameters:
+        - name: company_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of departments
+    post:
+      operationId: createDepartment
+      summary: Create a new department
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - company_id
+              properties:
+                name:
+                  type: string
+                company_id:
+                  type: integer
+                budget:
+                  type: number
+                head_count:
+                  type: integer
+      responses:
+        "201":
+          description: Department created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  company_id:
+                    type: integer
+  /departments/{departmentId}:
+    get:
+      operationId: getDepartment
+      summary: Get department by ID
+      parameters:
+        - name: departmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Department details
+    put:
+      operationId: updateDepartment
+      summary: Update a department
+      parameters:
+        - name: departmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                budget:
+                  type: number
+      responses:
+        "200":
+          description: Department updated
+    delete:
+      operationId: deleteDepartment
+      summary: Delete a department
+      parameters:
+        - name: departmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Department deleted
+  /employees:
+    get:
+      operationId: listEmployees
+      summary: List all employees
+      parameters:
+        - name: department_id
+          in: query
+          schema:
+            type: integer
+        - name: company_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of employees
+    post:
+      operationId: createEmployee
+      summary: Create a new employee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - department_id
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                department_id:
+                  type: integer
+                role:
+                  type: string
+                  enum: [engineer, manager, analyst, designer, hr, finance, operations]
+                salary:
+                  type: number
+                hire_date:
+                  type: string
+                  format: date
+      responses:
+        "201":
+          description: Employee created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  department_id:
+                    type: integer
+  /employees/{employeeId}:
+    get:
+      operationId: getEmployee
+      summary: Get employee by ID
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Employee details
+    put:
+      operationId: updateEmployee
+      summary: Update an employee
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                role:
+                  type: string
+                salary:
+                  type: number
+      responses:
+        "200":
+          description: Employee updated
+    delete:
+      operationId: deleteEmployee
+      summary: Delete an employee
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Employee deleted

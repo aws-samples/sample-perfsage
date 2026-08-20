@@ -1,0 +1,67 @@
+openapi: "3.0.3"
+info:
+  title: HTTPBin API
+  version: "1.0.0"
+servers:
+  - url: https://httpbin.org
+paths:
+  /get:
+    get:
+      operationId: getRequest
+      summary: Returns GET data
+      parameters:
+        - name: foo
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful response
+  /post:
+    post:
+      operationId: postRequest
+      summary: Returns POST data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                value:
+                  type: integer
+              required:
+                - name
+      responses:
+        "200":
+          description: Successful response
+  /status/{code}:
+    get:
+      operationId: getStatus
+      summary: Returns given HTTP status code
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Status response
+  /delay/{seconds}:
+    get:
+      operationId: getDelay
+      summary: Delays responding for n seconds
+      parameters:
+        - name: seconds
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 10
+      responses:
+        "200":
+          description: Delayed response

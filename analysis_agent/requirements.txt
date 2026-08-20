@@ -1,0 +1,12 @@
+# Runtime dependencies bundled into the Lambda deployment package.
+#
+# NOTE: boto3/botocore are intentionally NOT listed here. The AWS Lambda Python
+# runtime already provides them (~100 MB unzipped), and bundling them pushes the
+# package over Lambda's 250 MB unzipped limit. strands-agents-tools is also
+# omitted — this agent defines its own @tool functions and never imports it.
+#
+# For local development/testing (which needs boto3 + pytest), use:
+#   pip install -r requirements-dev.txt
+strands-agents>=0.1.0
+numpy>=1.26.0
+python-dotenv>=1.0.0

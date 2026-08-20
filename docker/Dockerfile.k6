@@ -1,0 +1,54 @@
+# PerfSage k6 Runner Container
+# Multi-stage build for optimized k6 execution with custom entrypoint
+
+# Pinned (CKV_DOCKER_7). 0.57.0 is the last k6 0.x — kept on 0.x deliberately so
+# the JSON metrics/summary output format the executor parses is unchanged
+# (k6 1.0/2.0 are major releases that may alter output). Bump only with a test.
+FROM --platform=linux/amd64 grafana/k6:0.57.0 AS k6-binary
+
+FROM --platform=linux/amd64 alpine:3.19 AS runner
+
+# Install required utilities
+RUN apk add --no-cache \
+    bash \
+    curl \
+    jq \
+    aws-cli \
+    ca-certificates \
+    python3
+
+# Copy k6 binary from official image
+COPY --from=k6-binary /usr/bin/k6 /usr/bin/k6
+
+# Create working directories
+RUN mkdir -p /scripts /results /config
+
+# Copy entrypoint
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Run as non-root (satisfies CKV_DOCKER_3). The entrypoint only writes to
+# /scripts and /results, so give the non-root user ownership of the writable
+# dirs. Requires an image rebuild + test run to confirm k6 output still writes.
+RUN addgroup -S perfsage && adduser -S -G perfsage perfsage \
+    && chown -R perfsage:perfsage /scripts /results /config /entrypoint.sh
+USER perfsage
+
+# Labels
+LABEL org.opencontainers.image.title="PerfSage k6 Runner"
+LABEL org.opencontainers.image.description="k6 load test runner for PerfSage Executor Agent"
+LABEL org.opencontainers.image.source="https://github.com/perfsage/perfsage-executor"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD echo "healthy" || exit 1
+
+# Environment defaults
+ENV K6_VUS=10
+ENV K6_DURATION=30s
+ENV PERFSAGE_TEST_ID=local-test
+ENV K6_OUT=json=/results/metrics.json
+
+WORKDIR /scripts
+
+ENTRYPOINT ["/entrypoint.sh"]

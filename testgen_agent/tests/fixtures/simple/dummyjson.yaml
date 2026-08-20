@@ -1,0 +1,97 @@
+openapi: "3.0.3"
+info:
+  title: DummyJSON API
+  version: "1.0.0"
+  description: A free fake REST API for testing with real responses
+servers:
+  - url: https://dummyjson.com
+paths:
+  /products:
+    get:
+      operationId: getProducts
+      summary: Get all products
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: skip
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of products
+  /products/{id}:
+    get:
+      operationId: getProduct
+      summary: Get a single product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product details
+  /products/search:
+    get:
+      operationId: searchProducts
+      summary: Search products
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search results
+  /auth/login:
+    post:
+      operationId: login
+      summary: Login and get auth token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Returns access token
+  /carts/{id}:
+    get:
+      operationId: getCart
+      summary: Get a cart by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cart details
+  /users/{id}:
+    get:
+      operationId: getUser
+      summary: Get user by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User details

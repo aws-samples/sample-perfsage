@@ -1,0 +1,59 @@
+{
+    "test_id": "run-heavy-load-001",
+    "script_path": "./tests/fixtures/heavy_load_test.js",
+    "virtual_users": 500,
+    "duration": "13m",
+    "ramp_up": "2m",
+    "thresholds": {
+        "p99_latency_ms": 5000,
+        "p95_latency_ms": 2000,
+        "error_rate_pct": 10.0,
+        "min_rps": 50.0
+    },
+    "execution_mode": "fargate",
+    "tags": {
+        "environment": "staging",
+        "team": "platform",
+        "test_type": "heavy_load",
+        "target": "httpbin.org"
+    },
+    "environment_vars": {},
+    "auto_stop_on_anomaly": true,
+    "fargate_cpu": 2048,
+    "fargate_memory": 4096,
+
+    "total_records": null,
+
+    "endpoint_relationships": [
+        {
+            "source": "GET /get",
+            "target": "POST /post",
+            "relationship": "sequential",
+            "data_mapping": {},
+            "description": "Reads before writes (simulates browse-then-act pattern)"
+        },
+        {
+            "source": "GET /basic-auth",
+            "target": "POST /post",
+            "relationship": "auth_required",
+            "data_mapping": {"$.authenticated": "is_valid"},
+            "description": "Write operations require authentication"
+        }
+    ],
+
+    "scenario_params": {
+        "target_url": "https://httpbin.org",
+        "auth_type": "basic",
+        "auth_token": "dXNlcjpwYXNz",
+        "content_type": "application/json",
+        "think_time_ms": 500,
+        "ramp_pattern": "step",
+        "geographic_distribution": "us-east-1",
+        "custom_headers": {
+            "X-Load-Test": "perfsage-heavy",
+            "X-Client-Version": "1.0.0"
+        },
+        "payload_size": "large",
+        "scenario_description": "Heavy load test against httpbin.org with 500 concurrent users. Mixed workload: 60% reads, 25% writes, 10% auth checks, 5% large payloads (~100KB). Ramp up over 2 minutes, sustain for 10 minutes, then ramp down. Expect ~50,000+ total requests."
+    }
+}

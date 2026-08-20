@@ -1,0 +1,231 @@
+openapi: "3.0.3"
+info:
+  title: E-Commerce API
+  version: "2.0.0"
+servers:
+  - url: https://api.shop.example.com/v2
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+        price:
+          type: number
+          format: float
+        category:
+          type: string
+          enum: [electronics, clothing, food, books]
+        in_stock:
+          type: boolean
+      required:
+        - name
+        - price
+        - category
+    CartItem:
+      type: object
+      properties:
+        product_id:
+          type: integer
+        quantity:
+          type: integer
+          minimum: 1
+      required:
+        - product_id
+        - quantity
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        shipping_address:
+          type: object
+          properties:
+            street:
+              type: string
+            city:
+              type: string
+            zip:
+              type: string
+            country:
+              type: string
+          required:
+            - street
+            - city
+            - zip
+        payment_method:
+          type: string
+          enum: [credit_card, paypal, bank_transfer]
+      required:
+        - items
+        - shipping_address
+        - payment_method
+security:
+  - BearerAuth: []
+paths:
+  /products:
+    get:
+      operationId: listProducts
+      summary: List products
+      security: []
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Product list
+  /products/{productId}:
+    get:
+      operationId: getProduct
+      summary: Get product details
+      security: []
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product details
+  /products/search:
+    get:
+      operationId: searchProducts
+      summary: Search products
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: min_price
+          in: query
+          schema:
+            type: number
+        - name: max_price
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Search results
+  /cart:
+    get:
+      operationId: getCart
+      summary: Get current user cart
+      responses:
+        "200":
+          description: Cart contents
+    post:
+      operationId: addToCart
+      summary: Add item to cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartItem'
+      responses:
+        "201":
+          description: Item added
+  /cart/{itemId}:
+    delete:
+      operationId: removeFromCart
+      summary: Remove item from cart
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Item removed
+  /orders:
+    post:
+      operationId: createOrder
+      summary: Place an order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+      responses:
+        "201":
+          description: Order placed
+    get:
+      operationId: listOrders
+      summary: List user orders
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, shipped, delivered, cancelled]
+      responses:
+        "200":
+          description: Order list
+  /orders/{orderId}:
+    get:
+      operationId: getOrder
+      summary: Get order details
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order details
+  /auth/login:
+    post:
+      operationId: login
+      summary: User login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        "200":
+          description: Login successful, returns JWT token

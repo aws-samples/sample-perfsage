@@ -1,0 +1,310 @@
+openapi: 3.0.3
+info:
+  title: E-commerce Product / Order / OrderItem CRUD API
+  version: "1.0.0"
+  description: 3-level hierarchy CRUD API (Product -> Order -> OrderItem). 500 rps throttle.
+servers:
+  - url: https://46ae763lp7.execute-api.us-east-1.amazonaws.com/v1
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+  /products:
+    get:
+      summary: List products
+      responses:
+        "200":
+          description: List of products
+    post:
+      summary: Create a product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                category:
+                  type: string
+                price:
+                  type: number
+      responses:
+        "201":
+          description: Product created
+  /products/{productId}:
+    get:
+      summary: Get a product
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product found
+    put:
+      summary: Update a product
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                category:
+                  type: string
+                price:
+                  type: number
+      responses:
+        "200":
+          description: Product updated
+    delete:
+      summary: Delete a product
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product deleted
+  /products/{productId}/orders:
+    get:
+      summary: List orders
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of orders
+    post:
+      summary: Create an order
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customerName]
+              properties:
+                customerName:
+                  type: string
+                quantity:
+                  type: integer
+                status:
+                  type: string
+      responses:
+        "201":
+          description: Order created
+  /products/{productId}/orders/{orderId}:
+    get:
+      summary: Get an order
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order found
+    put:
+      summary: Update an order
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                customerName:
+                  type: string
+                quantity:
+                  type: integer
+                status:
+                  type: string
+      responses:
+        "200":
+          description: Order updated
+    delete:
+      summary: Delete an order
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order deleted
+  /products/{productId}/orders/{orderId}/items:
+    get:
+      summary: List order items
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of items
+    post:
+      summary: Create an order item
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sku]
+              properties:
+                sku:
+                  type: string
+                quantity:
+                  type: integer
+                unitPrice:
+                  type: number
+      responses:
+        "201":
+          description: Item created
+  /products/{productId}/orders/{orderId}/items/{itemId}:
+    get:
+      summary: Get an order item
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Item found
+    put:
+      summary: Update an order item
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sku:
+                  type: string
+                quantity:
+                  type: integer
+                unitPrice:
+                  type: number
+      responses:
+        "200":
+          description: Item updated
+    delete:
+      summary: Delete an order item
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Item deleted
