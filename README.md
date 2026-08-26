@@ -578,6 +578,15 @@ See [`SECURITY.md`](./SECURITY.md) for the full security posture, including:
 
 ---
 
+## Contributors
+
+- [@mansiyd](https://github.com/mansiyd) — Project Lead & Development
+- [@rohtsaha](https://github.com/rohtsaha) — Development
+- [@kritirg1221](https://github.com/kritirg1221) — Development
+- [@srishwad](https://github.com/srishwad) — Development
+
+---
+
 ## Contributing
 
 See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for guidelines.
