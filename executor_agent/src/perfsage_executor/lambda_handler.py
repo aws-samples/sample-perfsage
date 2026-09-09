@@ -140,11 +140,12 @@ def _handle_worker(event):
         if target_url:
             scenario_params = TestScenarioParams(target_url=target_url)
 
-        # Scale Fargate resources based on workload size
-        fargate_cpu, fargate_memory = _get_fargate_sizing(vus, target_rps)
-
-        # Estimate total_records from the script to calculate setupTimeout
+        # Estimate total_records from the script (drives both setupTimeout and
+        # Fargate memory sizing — k6 memory scales with records seeded, not VUs).
         total_records = _estimate_records_from_script(script)
+
+        # Scale Fargate resources based on workload size + records seeded
+        fargate_cpu, fargate_memory = _get_fargate_sizing(vus, target_rps, total_records)
 
         config = TestConfig(
             test_id=test_id,
@@ -152,7 +153,14 @@ def _handle_worker(event):
             virtual_users=vus,
             duration=duration,
             execution_mode=ExecutionMode.FARGATE,
-            auto_stop_on_anomaly=True,
+            # Anomalies are still DETECTED and REPORTED, but do not auto-terminate the
+            # run. The rule-based detectors (latency spike >3x, error burst, flatline,
+            # connection exhaustion) false-positive on normal load-test behaviour —
+            # cold starts, the seed->load transition, and 0-RPS during setup() seeding
+            # would otherwise kill healthy runs. For a perf-testing tool, spikes are the
+            # signal we want to measure, not a reason to abort. setupTimeout + duration
+            # remain the natural upper bounds. Env override: PERFSAGE_ANOMALY_AUTO_STOP.
+            auto_stop_on_anomaly=os.getenv("PERFSAGE_ANOMALY_AUTO_STOP", "false").lower() == "true",
             scenario_params=scenario_params,
             fargate_cpu=fargate_cpu,
             fargate_memory=fargate_memory,
@@ -346,38 +354,72 @@ def _try_read_s3_summary(test_id: str):
         return None
 
 
-def _get_fargate_sizing(vus: int, target_rps: int = 40) -> tuple:
-    """Determine Fargate CPU/memory based on workload size and target RPS.
+def _get_fargate_sizing(vus: int, target_rps: int = 40, total_records: int = None) -> tuple:
+    """Determine Fargate CPU/memory from workload size, target RPS, and records seeded.
 
-    Higher RPS/VUs require more CPU for k6 to manage parallel connections
-    and more memory for the metrics buffer. Tiers tuned to actual k6 usage
-    (~1-5 MB per VU + metrics buffer). Returns (cpu_units, memory_mb) tuple.
+    Memory is driven PRIMARILY by the number of records seeded, not by VUs. During
+    setup() k6 holds every seeded id + response body in memory, and at end-of-test it
+    keeps every metric sample to compute summary percentiles while also flushing a large
+    --out json metrics file (e.g. ~300 MB at 50K, ~560 MB at 100K records). A 100K-record
+    run OOM-kills (exit 137) below 8 GB, so memory must scale with records — a 10-VU test
+    that seeds 100K records needs far more RAM than a 200-VU test that seeds nothing.
+
+    CPU is driven by RPS/VUs (parallel connection management). We compute a record-driven
+    tier and a throughput-driven tier and pick the larger, so each workload gets enough of
+    both. Tiers are aligned CPU/memory pairs, so the result is always a valid Fargate combo.
+    Returns (cpu_units, memory_mb) tuple.
     """
+    # Aligned Fargate (cpu_units, memory_mb) tiers — each a valid Fargate combination.
+    TIERS = [(512, 1024), (1024, 4096), (2048, 8192), (4096, 16384)]
+
+    records = total_records or 0
+    # Record-driven tier (memory-bound: seeding + metrics buffer + summary aggregation)
+    if records >= 75000:      # 100K: ~560 MB metrics — OOMs below 8 GB, use 16 GB for headroom
+        rec_tier = 3
+    elif records >= 30000:    # 50K: ~300 MB metrics
+        rec_tier = 2
+    elif records >= 10000:    # 10K
+        rec_tier = 1
+    else:                     # small / no seeding
+        rec_tier = 0
+
+    # Throughput-driven tier (CPU-bound: connection management)
     if target_rps > 300 or vus > 200:
-        return 2048, 8192   # high: 500 RPS + 100+ VUs needs real CPU for connection mgmt
-    if target_rps > 100 or vus > 50:
-        return 1024, 4096   # medium: 200 VUs ~1 GB peak, 1 vCPU handles 300 RPS batching
-    return 512, 1024        # low: 10-50 VUs + batch-45 seeding is light
+        rps_tier = 2
+    elif target_rps > 100 or vus > 50:
+        rps_tier = 1
+    else:
+        rps_tier = 0
+
+    return TIERS[max(rec_tier, rps_tier)]
 
 
 def _estimate_records_from_script(script: str) -> int | None:
     """Estimate total records to create from the k6 script content.
 
     Looks for patterns like:
-      const NUM_COMPANIES = 50;
-      const NUM_EMPLOYEES = 1000;
-      const NUM_ADDRESSES = 8950;
+      const NUM_COMPANIES = 50;      const PRODUCT_COUNT = 100;
+      const NUM_EMPLOYEES = 1000;    const ORDER_COUNT   = 3000;
+      const NUM_ADDRESSES = 8950;    const ITEM_COUNT    = 46900;
     or PERFSAGE_TOTAL_RECORDS, iterations count, etc.
+
+    Memory sizing depends on this being accurate, so we match the count-constant
+    naming conventions TestGen actually emits — both NUM_* and *_COUNT / *COUNT /
+    *TOTAL — not just NUM_*. Missing the count here silently under-sizes Fargate
+    memory and causes OOM (exit 137) on large seeds.
 
     Returns total record count or None if not determinable.
     """
     import re
 
     total = 0
-    # Match const NUM_<anything> = <number>
-    num_patterns = re.findall(r'(?:const|let|var)\s+NUM_\w+\s*=\s*(\d+)', script)
-    if num_patterns:
-        total = sum(int(n) for n in num_patterns)
+    # Match count-like constants: names containing COUNT / NUM / TOTAL (case-insensitive).
+    # Covers const NUM_COMPANIES = 50 AND const PRODUCT_COUNT = 100 AND const ORDER_TOTAL = 5.
+    count_patterns = re.findall(
+        r'(?:const|let|var)\s+\w*(?:COUNT|NUM|TOTAL)\w*\s*=\s*(\d+)', script, re.IGNORECASE
+    )
+    if count_patterns:
+        total = sum(int(n) for n in count_patterns)
 
     # Also check for explicit total_records or iterations
     if total == 0:

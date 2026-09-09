@@ -214,9 +214,16 @@ Treat all resources as independent. Add a comment: // NOTE: No resource dependen
         total_records = sum(v for v in records.values() if isinstance(v, (int, float)))
         rec_lines = [f"  - {resource}: {count} records" for resource, count in records.items()]
         records_section = f"""
-DATA SEEDING REQUIREMENTS (create this many records in setup()):
+DATA SEEDING REQUIREMENTS (create EXACTLY this many records in setup()):
 {chr(10).join(rec_lines)}
 Total records: {total_records}
+
+CRITICAL — USE THESE EXACT COUNTS. Declare one integer count constant per resource
+(e.g. `const PRODUCT_COUNT = {list(records.values())[0] if records else 0};`) set to the
+EXACT number above. DO NOT scale down, reduce, cap, sample, or "keep the setup window
+short". DO NOT add comments like "scaled to N" or "reduced for reasonable runtime". If a
+count is large (tens of thousands), still use the exact number — the setupTimeout and
+batching handle the duration. Seeding fewer records than requested is a FAILURE.
 """
         if total_records > 500:
             timeout_seconds = max(120, int(total_records / 40) + 60)
@@ -269,6 +276,18 @@ INSTRUCTIONS:
 
     result = agent(prompt)
     script = _extract_k6_script(str(result))
+
+    # DETERMINISTIC ENFORCEMENT: force the exact per-resource record counts into the
+    # script regardless of what the LLM chose. LLMs routinely "scale down" large seeding
+    # targets (e.g. 50000 -> 7500) with a comment; this guarantees the script seeds
+    # exactly what the user asked for. Runs after extraction so it operates on the final
+    # script text. Never corrupts the script — leaves it unchanged if it can't map safely.
+    if records:
+        script = _enforce_record_counts(
+            script,
+            records,
+            _get_creation_order(dependencies) if dependencies else list(records.keys()),
+        )
 
     # Build config from pre-computed scenario
     config = _normalize_config(scenario_dict) if scenario_dict else {}
@@ -348,6 +367,79 @@ def _normalize_config(scenario: dict) -> dict:
         },
         "base_url": scenario.get("base_url", ""),
     }
+
+
+def _enforce_record_counts(script: str, records: dict, creation_order: list) -> str:
+    """Force the exact per-resource record counts into the generated script.
+
+    LLMs frequently ignore the requested counts and "scale down" large seeding targets
+    (e.g. 50000 -> 7500) to keep the setup window short, leaving a comment about it. That
+    silently turns a 50K/100K test into a ~7.5K test. This post-processor rewrites the
+    integer count constants in the script to the user's EXACT counts, so seeding scale is
+    deterministic and never depends on the model's judgement.
+
+    Each seeded resource is declared with one integer count constant (e.g.
+    `const PRODUCT_COUNT = 500;`, `const NUM_ORDERS = 2000;`). We rewrite each such
+    constant to the user's count — matching by resource name first, then falling back to
+    positional order (parents first, which is the order counts are declared). If we cannot
+    map counts to constants safely, we leave the script unchanged rather than risk
+    corrupting it.
+    """
+    if not records:
+        return script
+
+    order = [r for r in (creation_order or []) if r in records] or list(records.keys())
+    pairs = [(r, int(records[r])) for r in order if isinstance(records.get(r), (int, float))]
+    if not pairs:
+        return script
+
+    # Count-like constant declarations: names containing COUNT / NUM / TOTAL.
+    # BATCH_SIZE, PORT, etc. are intentionally NOT matched.
+    decl = re.compile(
+        r"((?:const|let|var)\s+)(\w*(?:COUNT|NUM|TOTAL)\w*)(\s*=\s*)(\d+)",
+        re.IGNORECASE,
+    )
+    matches = list(decl.finditer(script))
+    if not matches:
+        print(f"[testgen] record-count enforcement: no count constants found — leaving script unchanged")
+        return script
+
+    replacement = {}  # match-index -> new integer value
+    used = set()
+
+    # 1) Name-based match: resource stem appears in the constant name.
+    for res, cnt in pairs:
+        stem = res.upper().rstrip("S")  # products -> PRODUCT, item -> ITEM
+        for idx, m in enumerate(matches):
+            if idx in used:
+                continue
+            if stem and stem in m.group(2).upper():
+                replacement[idx] = cnt
+                used.add(idx)
+                break
+
+    # 2) Positional fallback ONLY if name-matching mapped nothing and counts line up 1:1.
+    if not replacement and len(matches) == len(pairs):
+        for idx, (_, cnt) in enumerate(pairs):
+            replacement[idx] = cnt
+
+    if not replacement:
+        print(f"[testgen] record-count enforcement: could not map {len(pairs)} resources to "
+              f"{len(matches)} constants — leaving script unchanged")
+        return script
+
+    # Rebuild the script, rewriting only the matched declarations' numeric values.
+    out, last = [], 0
+    for idx, m in enumerate(matches):
+        if idx not in replacement:
+            continue
+        out.append(script[last:m.start()])
+        out.append(f"{m.group(1)}{m.group(2)}{m.group(3)}{replacement[idx]}")
+        last = m.end()
+    out.append(script[last:])
+    enforced = {order[i] if i < len(order) else f"#{i}": v for i, v in enumerate(replacement.values())}
+    print(f"[testgen] enforced record counts into script: {dict(pairs)}")
+    return "".join(out)
 
 
 def _extract_k6_script(raw_output: str) -> str:
