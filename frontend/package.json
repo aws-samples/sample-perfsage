@@ -11,7 +11,7 @@
     "dependencies": {
         "@aws-sdk/client-dynamodb": "^3.490.0",
         "@aws-sdk/client-lambda": "^3.490.0",
-        "next": "16.3.0",
+        "next": "16.3.3",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
         "react-markdown": "^9.1.0",
